@@ -18,7 +18,7 @@ They do not prove that the cryptography is unbreakable, that the implementation 
 
 The Quantova gateway is a plain HTTP surface. Every call is an HTTP POST to `/v1/<method>` with a flat JSON body. The methods are node_info, head, validators, chain_params, get_account, get_transaction, submit_transaction, get_block, supply, get_container, get_storage, and get_events. The full reference is in [docs/endpoints.md](docs/endpoints.md).
 
-The testnet gateway is at `https://testnet.quantova.io`. Free TQTOV for the testnet is available from the faucet at https://quantova.org. TQTOV is the testnet asset. The mainnet asset is QTOV, and its base unit is the Quon, where one QTOV is one million Quon.
+The testnet gateway is at `https://rpc-testnet.quantova.org`. Free TQTOV for the testnet is available from the faucet at https://quantova.org. TQTOV is the testnet asset. The mainnet asset is QTOV, and its base unit is the Quon, where one QTOV is one million Quon.
 
 ## Quickstart
 
@@ -28,7 +28,7 @@ cd Q-Attest
 npm install
 
 # point the labs at a node
-export QUANTOVA_GATEWAY_URL=https://testnet.quantova.io
+export QUANTOVA_GATEWAY_URL=https://rpc-testnet.quantova.org
 
 # run every lab
 npm test

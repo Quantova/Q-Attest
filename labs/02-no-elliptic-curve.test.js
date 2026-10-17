@@ -13,7 +13,7 @@
  * gateway exposes no elliptic curve recovery method. What it does NOT prove is the
  * absence of a classical path in some unrelated component. See docs/what-the-labs-prove.md.
  *
- * Run  QUANTOVA_GATEWAY_URL=https://testnet.quantova.io npm run lab:no-ec
+ * Run  QUANTOVA_GATEWAY_URL=https://rpc-testnet.quantova.org npm run lab:no-ec
  */
 
 import { test } from "node:test";
@@ -50,7 +50,7 @@ test("addresses are Q1 bech32m, not 20 byte hex", { skip }, async () => {
   const isHex20 = /^0x[0-9a-fA-F]{40}$/.test(address);
   assert.ok(!isHex20, `address ${address} is 20 byte hex, which is a classical account format`);
   assert.ok(
-    /^Q1[0-9a-z]+$/.test(address),
+    /^Q1[02-9AC-HJ-NP-Z]+$/.test(address),
     `address ${address} is not a Q1 bech32m string. Quantova addresses start with a capital Q.`
   );
   console.log(`address confirmed as Q1 bech32m ${address}`);
@@ -62,14 +62,8 @@ test("the gateway exposes no elliptic curve recovery method", { skip }, async ()
   // should fail, and their failure is the expected and passing result.
   const probes = ["ecrecover", "ec_recover", "recover_pubkey"];
   for (const method of probes) {
-    let present = false;
-    try {
-      await g.call(method, {});
-      present = true;
-    } catch {
-      present = false;
-    }
-    assert.ok(!present, `gateway answered /v1/${method}, which must not exist on a post quantum chain`);
+    const absent = await g.methodAbsent(method);
+    assert.ok(absent, `the gateway did not answer /v1/${method} with unknown_method, so it either exposes the method or could not be reached`);
   }
   console.log("no elliptic curve recovery method is exposed");
 });

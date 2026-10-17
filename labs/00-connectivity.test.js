@@ -11,7 +11,7 @@
  * What it does NOT prove is anything about the cryptography. See
  * docs/what-the-labs-prove.md.
  *
- * Run  QUANTOVA_GATEWAY_URL=https://testnet.quantova.io npm run lab:connectivity
+ * Run  QUANTOVA_GATEWAY_URL=https://rpc-testnet.quantova.org npm run lab:connectivity
  */
 
 import { test } from "node:test";

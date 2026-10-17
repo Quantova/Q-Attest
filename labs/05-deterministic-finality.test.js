@@ -15,7 +15,7 @@
  * adversarial conditions. That is a matter for the QORUS specification and for
  * audit, not for a sampling window on one node. See docs/what-the-labs-prove.md.
  *
- * Run  QUANTOVA_GATEWAY_URL=https://testnet.quantova.io npm run lab:finality
+ * Run  QUANTOVA_GATEWAY_URL=https://rpc-testnet.quantova.org npm run lab:finality
  */
 
 import { test } from "node:test";
@@ -30,7 +30,7 @@ const skip = !HAS_ENDPOINT;
  */
 async function finalizedHeight(g) {
   const h = await g.head();
-  const raw = h?.finalized_height ?? h?.finalized ?? h?.last_finalized;
+  const raw = h?.finalized_height ?? h?.height;
   if (raw === undefined || raw === null) {
     throw new Error(
       "head did not report a finalized height, set the correct field per the ADAPT note"
@@ -40,7 +40,7 @@ async function finalizedHeight(g) {
 }
 
 function blockHash(block) {
-  return block?.hash || block?.header?.hash;
+  return block?.block;
 }
 
 test("a finalized block is stable on re read", { skip }, async () => {
@@ -62,8 +62,9 @@ test("finality lag stays bounded over a short window", { skip }, async () => {
   let worst = 0;
 
   for (let i = 0; i < SAMPLES; i++) {
-    const head = await g.headHeight();
-    const fin = await finalizedHeight(g);
+    const h = await g.head();
+    const head = Number(h?.height);
+    const fin = Number(h?.finalized_height ?? h?.height);
     const lag = head - fin;
     worst = Math.max(worst, lag);
     assert.ok(lag >= 0, `finalized height ${fin} is ahead of head ${head}`);

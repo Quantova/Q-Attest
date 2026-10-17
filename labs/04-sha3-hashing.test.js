@@ -19,6 +19,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import { decodeBech32m } from "../lib/bech32m.js";
 import { HAS_ENDPOINT, QuantovaGateway } from "../lib/gateway-client.js";
 import { byteLength } from "../lib/pq-schemes.js";
 
@@ -50,13 +51,11 @@ test("live, a block hash is a 32 byte value", { skip }, async () => {
   const height = await g.headHeight();
   const block = await g.getBlock(Math.max(0, height - 1));
 
-  // ADAPT, confirm the block hash field name if it is not hash.
-  const hash = block?.hash || block?.header?.hash;
-  assert.ok(hash, "could not find a block hash field, see the ADAPT note in this file");
-  assert.equal(
-    byteLength(hash),
-    32,
-    `block hash is ${byteLength(hash)} bytes, SHA3 256 hashes are 32 bytes`
-  );
+  const id = decodeBech32m(block?.block);
+  assert.ok(id && id.hrp === "QBK", `the block identifier ${block?.block} is not a QBK bech32m string`);
+  assert.equal(id.bytes.length, 32, `the block hash is ${id.bytes.length} bytes, SHA3 256 hashes are 32 bytes`);
+  for (const field of ["transaction_root", "event_root"]) {
+    assert.ok(/^[0-9a-f]{64}$/.test(block?.[field] || ""), `${field} is not a 32 byte hash`);
+  }
   console.log("block hash width confirmed, 32 bytes");
 });

@@ -1,6 +1,6 @@
 {
   "name": "quantova-consensus-spec-test",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Public verification labs for inspecting that a Quantova node exhibits a post quantum QORUS structure over the gateway.",
   "type": "module",
   "engines": { "node": ">=18" },

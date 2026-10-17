@@ -20,7 +20,7 @@
  * draw is unbiased or unpredictable. That rests on the QORUS specification and on
  * audit, not on an inspection from outside the node. See docs/what-the-labs-prove.md.
  *
- * Run  QUANTOVA_GATEWAY_URL=https://testnet.quantova.io npm run lab:sortition
+ * Run  QUANTOVA_GATEWAY_URL=https://rpc-testnet.quantova.org npm run lab:sortition
  */
 
 import { test } from "node:test";

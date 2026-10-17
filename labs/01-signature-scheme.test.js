@@ -13,7 +13,7 @@
  * size. What it does NOT prove is correct implementation, parameter choice, or the
  * absence of a classical path elsewhere. See docs/what-the-labs-prove.md.
  *
- * Run  QUANTOVA_GATEWAY_URL=https://testnet.quantova.io npm run lab:signature
+ * Run  QUANTOVA_GATEWAY_URL=https://rpc-testnet.quantova.org npm run lab:signature
  */
 
 import { test } from "node:test";
@@ -29,30 +29,25 @@ const skip = !HAS_ENDPOINT;
  * finality signature, the proposer signature, or a transaction signature.
  * Adjust the extraction below to the get_block response shape.
  */
-async function fetchSignatureHex(g) {
+async function fetchSignedTransaction(g) {
   const height = await g.headHeight();
-  const block = await g.getBlock(Math.max(0, height - 1));
-
-  // ADAPT, common places a signature may appear. Pick the one the node uses.
-  const candidate =
-    block?.finality_signature ||
-    block?.proposer_signature ||
-    block?.signature ||
-    block?.transactions?.[0]?.signature;
-
-  if (!candidate) {
-    throw new Error(
-      "Could not locate a signature in the block response. Open docs/how-the-labs-work.md " +
-        "and set the correct field, marked with an ADAPT note in this file."
-    );
+  for (let h = height - 1; h > Math.max(0, height - 200); h -= 1) {
+    const block = await g.getBlock(h);
+    const id = block?.tx_ids?.[0];
+    if (id) return g.getTransaction(id);
   }
-  return candidate;
+  throw new Error("no transaction was found in the last 200 blocks");
 }
 
 test("a chain signature is in the post quantum size band", { skip }, async () => {
   const g = new QuantovaGateway();
-  const sigHex = await fetchSignatureHex(g);
+  const tx = await fetchSignedTransaction(g);
+  const sigHex = tx.signature;
+  assert.ok(typeof sigHex === "string" && /^[0-9a-f]+$/.test(sigHex), "the transaction carries no hex signature");
+  assert.equal(tx.scheme, 1, `the transaction names signature scheme ${tx.scheme}, not 1 for ML-DSA-65`);
+  assert.ok(typeof tx.raw === "string" && tx.raw.includes(sigHex), "the signature is not part of the transaction bytes the chain recorded");
   const { bytes, classical, postQuantum, nearest } = classifySignature(sigHex);
+  assert.equal(bytes, 3309, `the signature is ${bytes} bytes, an ML-DSA-65 signature is exactly 3309 bytes`);
 
   console.log(`signature length ${bytes} bytes, nearest post quantum parameter set ${nearest}`);
 
