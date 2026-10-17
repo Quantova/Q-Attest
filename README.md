@@ -43,7 +43,7 @@ Labs that need a node skip cleanly when `QUANTOVA_GATEWAY_URL` is unset, so `npm
 
 Lab 00 connectivity confirms the gateway is reachable, that it reports a node identity and chain params, and that the head advances.
 
-Lab 01 signature scheme classifies a signature by byte length and confirms it is in the post quantum band. ML-DSA-65 is 3309 bytes, far above the roughly 64 byte classical band.
+Lab 01 signature scheme classifies a signature by byte length and confirms it is in the post quantum band. ML-DSA-65 is 3309 bytes, far above the roughly 64 byte classical band. It also verifies a real ML-DSA-65 signature rather than measuring one. It takes a key registration transaction and checks that its id is the SHA3 256 of the recorded bytes, that the registered public key hashes to the sender address, and that the signature verifies under that key over the signed body with the transaction context. A recorded registration is checked offline and the copy the chain serves is checked over the gateway. Set `QUANTOVA_KEY_REGISTER_TX` to check another registration. The check uses the native ML-DSA support in Node 24 or later and fails on an older Node rather than passing.
 
 Lab 02 no elliptic curve confirms addresses are Q1 bech32m rather than 20 byte hex, and that the gateway exposes no ecrecover or secp256k1 recovery method.
 

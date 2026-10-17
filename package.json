@@ -3,7 +3,7 @@
   "version": "0.1.1",
   "description": "Public verification labs for inspecting that a Quantova node exhibits a post quantum QORUS structure over the gateway.",
   "type": "module",
-  "engines": { "node": ">=18" },
+  "engines": { "node": ">=24" },
   "scripts": {
     "test": "node --test labs/*.test.js",
     "labs": "node --test labs/*.test.js",
