@@ -37,7 +37,7 @@ npm test
 npm run lab:signature
 ```
 
-Labs that need a node skip cleanly when `QUANTOVA_GATEWAY_URL` is unset, so `npm test` passes offline and runs the self verifying checks, for example the SHA3 256 known answer tests. Set the endpoint to run the live checks. The variable and its default are documented in [.env.example](.env.example).
+The labs run against the official testnet gateway unless `QUANTOVA_GATEWAY_URL` names another one, and a gateway that cannot be reached or serves another chain fails the live labs rather than skipping them. Set `QUANTOVA_OFFLINE` to 1 to skip the labs that need a node, so `npm test` runs only the self verifying checks, for example the SHA3 256 known answer tests. The variables and their defaults are documented in [.env.example](.env.example).
 
 ## The labs
 
