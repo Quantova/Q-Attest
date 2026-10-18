@@ -12,7 +12,7 @@ These labs are an inspection harness, not a security proof. Read [docs/what-the-
 
 They confirm that a node exhibits the expected post quantum structure. That means post quantum signature schemes and sizes, no ecrecover and no secp256k1 path, Q1 bech32m addresses, QORUS committee sortition rather than a fixed or unbounded author set, SHA-3 hashing, and stable finality over the window observed.
 
-They do not prove that the cryptography is unbreakable, that the implementation is free of side channels, or that no classical path exists elsewhere. Those questions rest on the NIST standardization of the underlying schemes and on external audit, which is still ahead. The labs are evidence, not a substitute for audit.
+They do not prove that the cryptography is unbreakable, that the implementation is free of side channels, or that no classical path exists elsewhere. Those questions rest on the NIST standardization of the underlying schemes and on independent review. The labs are evidence, not a substitute for that review.
 
 ## The gateway
 

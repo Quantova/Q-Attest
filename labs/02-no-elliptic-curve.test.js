@@ -1,32 +1,12 @@
 // Copyright 2026 Quantova Inc
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-/**
- * Lab 02 No Elliptic Curve
- *
- * Confirms the account layer is post quantum. Quantova addresses are Q1 bech32m
- * strings written with a capital Q, derived from an ML-DSA-65 public key. There
- * is no ecrecover and no secp256k1 recovery path, because there is no elliptic
- * curve anywhere in the chain.
- *
- * What this proves is that addresses are Q1 bech32m, not 20 byte hex, and the
- * gateway exposes no elliptic curve recovery method. What it does NOT prove is the
- * absence of a classical path in some unrelated component. See docs/what-the-labs-prove.md.
- *
- * Run  QUANTOVA_GATEWAY_URL=https://rpc-testnet.quantova.org npm run lab:no-ec
- */
-
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { HAS_ENDPOINT, QuantovaGateway } from "../lib/gateway-client.js";
 
 const skip = !HAS_ENDPOINT;
 
-/**
- * Pull an address to inspect from a recent block.
- * ADAPT, confirm where the node records an account address. It may be a
- * transaction sender, a proposer, or a validator entry.
- */
 async function fetchAddress(g) {
   const height = await g.headHeight();
   const block = await g.getBlock(Math.max(0, height - 1));
@@ -58,8 +38,6 @@ test("addresses are Q1 bech32m, not 20 byte hex", { skip }, async () => {
 
 test("the gateway exposes no elliptic curve recovery method", { skip }, async () => {
   const g = new QuantovaGateway();
-  // A post quantum chain has no key recovery from a signature. These probes
-  // should fail, and their failure is the expected and passing result.
   const probes = ["ecrecover", "ec_recover", "recover_pubkey"];
   for (const method of probes) {
     const absent = await g.methodAbsent(method);

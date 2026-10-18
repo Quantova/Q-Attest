@@ -1,21 +1,6 @@
 // Copyright 2026 Quantova Inc
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-/**
- * Lab 01 Signature Scheme
- *
- * Verifies that signatures on the chain are post quantum by size band, not
- * classical. Quantova signs with ML-DSA-65 (FIPS 204), which is 3309 bytes.
- * Classical signatures such as ECDSA and Ed25519 are about 64 bytes, so a
- * signature in the classical band is a red flag.
- *
- * What this proves is that the inspected signature uses a post quantum scheme by
- * size. What it does NOT prove is correct implementation, parameter choice, or the
- * absence of a classical path elsewhere. See docs/what-the-labs-prove.md.
- *
- * Run  QUANTOVA_GATEWAY_URL=https://rpc-testnet.quantova.org npm run lab:signature
- */
-
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { HAS_ENDPOINT, QuantovaGateway } from "../lib/gateway-client.js";
@@ -188,12 +173,6 @@ test("live, a key registration served by the chain verifies under the key it reg
   console.log(`ML-DSA-65 signature of ${tx.tx_id} verified under the key bound to ${tx.from}`);
 });
 
-/**
- * Pull a signature to inspect from a recent block.
- * ADAPT, confirm where the node exposes the signature. It may be the block
- * finality signature, the proposer signature, or a transaction signature.
- * Adjust the extraction below to the get_block response shape.
- */
 async function fetchSignedTransaction(g) {
   const height = await g.headHeight();
   for (let h = height - 1; h > Math.max(0, height - 200); h -= 1) {

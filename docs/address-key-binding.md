@@ -1,6 +1,6 @@
 # Address key binding
 
-This note describes how a Quantova account is bound to its public key. It is a design note for the testnet stage. Quantova is pre audit and external review is still ahead.
+This note describes how a Quantova account is bound to its public key. It is a design note.
 
 ## Addresses
 
@@ -18,4 +18,4 @@ The residual is that a funded address that has never signed is bound only on its
 
 ## Honesty
 
-This note describes a design approach at the testnet stage. External audit of the account layer is still ahead. Report findings through the security documentation repository.
+This note describes a design approach. Report issues through the security documentation repository.

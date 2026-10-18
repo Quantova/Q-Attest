@@ -1,19 +1,6 @@
 // Copyright 2026 Quantova Inc
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-/**
- * Lab 00 Connectivity
- *
- * Confirms the gateway is reachable and reports a node identity, a chain id,
- * and a head height. This is the ground truth every other live lab builds on.
- *
- * What this proves is that the gateway answers and the node is producing blocks.
- * What it does NOT prove is anything about the cryptography. See
- * docs/what-the-labs-prove.md.
- *
- * Run  QUANTOVA_GATEWAY_URL=https://rpc-testnet.quantova.org npm run lab:connectivity
- */
-
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { HAS_ENDPOINT, QuantovaGateway } from "../lib/gateway-client.js";

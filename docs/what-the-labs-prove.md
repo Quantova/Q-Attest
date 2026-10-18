@@ -12,10 +12,10 @@ This is meaningful. It is direct reproducible evidence that the running system b
 
 ## What the labs do not establish
 
-These labs are an inspection harness, not a proof of security. They do not show that the cryptography is unbreakable. The strength of ML-DSA and SLH-DSA rests on their NIST standardization and on the underlying hard problems, not on a connectivity test. They do not show that the implementation is correct. Correct parameter sets, constant time behavior, absence of side channels, and correct serialization are matters for external audit, which is still ahead, not for these labs. They do not show that no classical path exists anywhere, because the labs inspect specific paths and cannot prove a negative across the whole system. They do not show that the sortition draw is unbiased, and they do not show that finality is safe under adversarial conditions. Lab 03 reads the committee and Lab 05 observes stability over a sampling window on one node. Neither is a formal analysis.
+These labs are an inspection harness, not a proof of security. They do not show that the cryptography is unbreakable. The strength of ML-DSA and SLH-DSA rests on their NIST standardization and on the underlying hard problems, not on a connectivity test. They do not show that the implementation is correct. Correct parameter sets, constant time behavior, absence of side channels, and correct serialization are matters for independent review, not for these labs. They do not show that no classical path exists anywhere, because the labs inspect specific paths and cannot prove a negative across the whole system. They do not show that the sortition draw is unbiased, and they do not show that finality is safe under adversarial conditions. Lab 03 reads the committee and Lab 05 observes stability over a sampling window on one node. Neither is a formal analysis.
 
 ## The honest summary
 
-These labs let anyone independently confirm that a Quantova node presents the expected post quantum behavior. Quantova is at the testnet and pre audit stage, and external audit is still ahead.
+These labs let anyone independently confirm that a Quantova node presents the expected post quantum behavior.
 
-The labs complement the NIST standardization of the schemes and the audits that are still to come. They do not replace either. Treating the labs as evidence is correct. Treating them as a security proof is not.
+The labs complement the NIST standardization of the schemes and do not replace it. Treating the labs as evidence is correct. Treating them as a security proof is not.
