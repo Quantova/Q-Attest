@@ -6,7 +6,7 @@ The gateway to point the labs at, and the methods they use.
 
 The Quantova gateway is a plain HTTP surface. Every call is an HTTP POST to `/v1/<method>` with a flat JSON body. The response is JSON. Addresses are Q1 bech32m strings written with a capital Q. Heights and amounts are plain JSON numbers or decimal strings.
 
-The testnet gateway is at `https://rpc-testnet.quantova.org`. Set it in your environment.
+The `Q-test-net-01` gateway is at `https://rpc-testnet.quantova.org`. `Q-test-net-01` is a live network and only its native asset TQTOV is a test asset. Set the gateway in your environment.
 
 ```
 export QUANTOVA_GATEWAY_URL=https://rpc-testnet.quantova.org
@@ -16,10 +16,10 @@ For the live consensus and finality labs, the most reliable target is a node you
 
 ## Gateway methods
 
-The gateway exposes node_info, head, validators, chain_params, get_account, get_transaction, submit_transaction, get_block, supply, get_container, get_storage, and get_events.
+The gateway exposes node_info, head, finalized_head, get_finality, get_validator_set, validators, chain_params, get_account, get_transaction, submit_transaction, get_block, supply, get_container, get_storage, and get_events, among others.
 
-The labs read a subset of these. Connectivity uses node_info, head, and chain_params. The signature lab uses get_block. The no elliptic curve lab uses get_block and validators. The committee sortition lab uses validators, chain_params, and get_block. The SHA3 lab uses head and get_block. The finality lab uses head and get_block.
+The labs read a subset of these. Every live lab starts with node_info to pin the chain. Connectivity uses head and chain_params. The signature lab uses head, get_block, and get_transaction. The no elliptic curve lab uses head, get_block, and validators. The committee and proposer lab uses validators, finalized_head, get_finality, and get_block, and reads get_validator_set only to compare it with the finality pin. The SHA3 lab uses head and get_block. The finality lab uses finalized_head, get_finality, head, and get_block, and reads get_validator_set only to compare it with the finality pin.
 
-The no elliptic curve lab also probes for methods that must not exist on a post quantum chain, such as ecrecover. Their absence is the expected result.
+The no elliptic curve lab also probes for methods named ecrecover, ec_recover and recover_pubkey, which must not exist on a post quantum chain. Their absence is the expected result. It shows only that no method by those names is exposed.
 
-Exact field names, and any committee or finalized height fields, depend on the node's serialization. See [how-the-labs-work.md](how-the-labs-work.md) and the ADAPT notes in the lab files. The full gateway reference lives in the developer documentation at https://quantova.org.
+Every response field the labs read is listed in the field table in [how-the-labs-work.md](how-the-labs-work.md). The full gateway reference lives in the developer documentation at https://quantova.org.

@@ -3,22 +3,35 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { HAS_ENDPOINT, QuantovaGateway } from "../lib/gateway-client.js";
+import { createHash, generateKeyPairSync, randomBytes, sign } from "node:crypto";
+import { encodeBech32m } from "../lib/bech32m.js";
+import { printable } from "../lib/printable.js";
+import { EXPECTED_CHAIN_ID, HAS_ENDPOINT, LIVE_NETWORK, QuantovaGateway } from "../lib/gateway-client.js";
 import {
+  chainIdFor,
   classifySignature,
   nativeMlDsaAvailable,
+  parseTransactionBody,
+  transactionChainId,
   verifyKeyRegistration,
+  ML_DSA_65_PUBLIC_KEY_BYTES,
   ML_DSA_65_SIGNATURE_BYTES,
   PQ_MIN_BYTES,
   CLASSICAL_MAX_BYTES,
+  CHAIN_SIGNATURE_BYTES,
+  KEY_REGISTER_TARGET,
+  SCHEME_ML_DSA_65,
+  TRANSACTION_CONTEXT,
 } from "../lib/pq-schemes.js";
 
 const skip = !HAS_ENDPOINT;
+const LIVE_NETWORK_CHAIN_ID = 6995079887857407393n;
+const RETIRED_NETWORK = "Q-test-net-1";
+const WINDOW = 200;
+const MAX_LOOKUPS = 400;
+const NAMED_KEY_REGISTRATION_ID = process.env.QUANTOVA_KEY_REGISTER_TX || null;
 
-const PINNED_KEY_REGISTRATION_ID =
-  process.env.QUANTOVA_KEY_REGISTER_TX || "QTX12XCH3FRGH3TS3GDFYLMYY6Z0URFP8S0TPG9FJ74CVMH86W7GQN5QCTUXLE";
-
-const RECORDED_KEY_REGISTRATION_RAW = [
+const RETIRED_Q_TEST_NET_1_REGISTRATION_RAW = [
     "2000000000000000e7afccf8fa3c1fb6ddd6acf81c9c8e407421e2282c8d3aa8ac904e8a6e2c0c1d0000000000000000",
     "ba04000000000000f4010000000000000000000000000000200000000000000008edfca9bb5d48c0d84549e4ca89bbc3",
     "568ed3eee0cb494c6cb7ff23cfe7f64fa007000000000000df77ccf6eb6b0858c0b8cbdc3663ac833eed690037ce296a",
@@ -134,12 +147,12 @@ const RECORDED_KEY_REGISTRATION_RAW = [
     "c0193b5cb9d9e7eeff417b848793b5b6b9dae7fb1c37538cadc4f1355873cffd0000000000000000000a0f1722292e",
   ].join("");
 
-const RECORDED_KEY_REGISTRATION = {
+const RETIRED_Q_TEST_NET_1_REGISTRATION = {
   tx_id: "QTX12XCH3FRGH3TS3GDFYLMYY6Z0URFP8S0TPG9FJ74CVMH86W7GQN5QCTUXLE",
   from: "Q1U7HUE7868S0MDHWK4NUPE8YWGP6ZRC3G9JXN429VJP8G5M3VPSWSLEL3CX",
   scheme: 1,
-  raw: RECORDED_KEY_REGISTRATION_RAW,
-  signature: RECORDED_KEY_REGISTRATION_RAW.slice(-2 * ML_DSA_65_SIGNATURE_BYTES),
+  raw: RETIRED_Q_TEST_NET_1_REGISTRATION_RAW,
+  signature: RETIRED_Q_TEST_NET_1_REGISTRATION_RAW.slice(-2 * ML_DSA_65_SIGNATURE_BYTES),
 };
 
 function requireNativeMlDsa() {
@@ -149,38 +162,148 @@ function requireNativeMlDsa() {
   );
 }
 
-test("a recorded key registration verifies as a real ML-DSA-65 signature, offline", () => {
-  requireNativeMlDsa();
-  const verdict = verifyKeyRegistration(RECORDED_KEY_REGISTRATION);
-  assert.ok(verdict.ok, verdict.reason);
-  const flipped = RECORDED_KEY_REGISTRATION_RAW.slice(0, 200) +
-    (RECORDED_KEY_REGISTRATION_RAW[200] === "0" ? "1" : "0") +
-    RECORDED_KEY_REGISTRATION_RAW.slice(201);
-  assert.equal(verifyKeyRegistration({ ...RECORDED_KEY_REGISTRATION, raw: flipped }).ok, false);
-  const forged = { ...RECORDED_KEY_REGISTRATION };
-  forged.signature = "ab".repeat(ML_DSA_65_SIGNATURE_BYTES);
-  forged.raw = RECORDED_KEY_REGISTRATION_RAW.slice(0, -2 * ML_DSA_65_SIGNATURE_BYTES) + forged.signature;
-  assert.equal(verifyKeyRegistration(forged).ok, false, "a signature of the right length but wrong content must not pass");
+test(`the ${LIVE_NETWORK} chain id is the first 8 bytes of SHA3 256 of its name, offline`, () => {
+  assert.equal(chainIdFor(LIVE_NETWORK), LIVE_NETWORK_CHAIN_ID);
+  assert.notEqual(chainIdFor(RETIRED_NETWORK), LIVE_NETWORK_CHAIN_ID);
 });
+
+function sha3(bytes) {
+  return createHash("sha3-256").update(bytes).digest();
+}
+
+function u64le(n) {
+  const out = Buffer.alloc(8);
+  out.writeBigUInt64LE(BigInt(n));
+  return out;
+}
+
+function encodeBody(p) {
+  const fee = Buffer.alloc(16);
+  fee.writeBigUInt64LE(p.fee & ((1n << 64n) - 1n), 0);
+  fee.writeBigUInt64LE(p.fee >> 64n, 8);
+  const field = (bytes) => Buffer.concat([u64le(bytes.length), bytes]);
+  return Buffer.concat([
+    field(p.sender),
+    u64le(p.nonce),
+    u64le(p.meterLimit),
+    fee,
+    field(p.target),
+    field(p.args),
+    u64le(p.value),
+    u64le(p.chainId),
+    field(p.inAsset),
+    u64le(p.validUntil),
+    Buffer.from([p.kind]),
+  ]);
+}
+
+function signedRegistration(chainId, genesis, change = {}) {
+  const template = RETIRED_Q_TEST_NET_1_REGISTRATION;
+  const trailer = 1 + 8 + ML_DSA_65_SIGNATURE_BYTES;
+  const shape = parseTransactionBody(Buffer.from(template.raw, "hex").subarray(0, template.raw.length / 2 - trailer));
+  assert.ok(shape.target.equals(KEY_REGISTER_TARGET) && shape.kind === 0, "the recorded registration is sent to the key registration system address as a transfer");
+  const { publicKey, privateKey } = generateKeyPairSync("ml-dsa-65");
+  const pk = publicKey.export({ format: "der", type: "spki" }).subarray(-ML_DSA_65_PUBLIC_KEY_BYTES);
+  const sender = change.sender || sha3(Buffer.concat([Buffer.from([SCHEME_ML_DSA_65]), pk]));
+  const args = change.pad ? Buffer.concat([pk, Buffer.alloc(1)]) : pk;
+  const body = encodeBody({ ...shape, sender, args, chainId, target: change.target || shape.target, kind: change.kind ?? shape.kind });
+  const signature = sign(null, sha3(Buffer.concat([genesis, body])), { key: privateKey, context: Buffer.from(TRANSACTION_CONTEXT) });
+  const raw = Buffer.concat([body, Buffer.from([SCHEME_ML_DSA_65]), u64le(signature.length), signature]);
+  return {
+    tx_id: encodeBech32m("QTX", sha3(raw)),
+    from: encodeBech32m("Q", sender),
+    scheme: SCHEME_ML_DSA_65,
+    raw: raw.toString("hex"),
+    signature: signature.toString("hex"),
+  };
+}
+
+test(`a key registration signed for ${LIVE_NETWORK} verifies only under its chain id and genesis, offline`, () => {
+  requireNativeMlDsa();
+  const live = chainIdFor(LIVE_NETWORK);
+  const genesis = randomBytes(32);
+  const tx = signedRegistration(live, genesis);
+  assert.equal(transactionChainId(tx), live);
+  const verdict = verifyKeyRegistration(tx, live, genesis);
+  assert.ok(verdict.ok, verdict.reason);
+  assert.equal(verifyKeyRegistration(tx, live, randomBytes(32)).ok, false, "a registration must not verify over another genesis");
+  assert.equal(verifyKeyRegistration(tx, live).ok, false, "a registration signed over a genesis must not verify without it");
+  const retired = signedRegistration(chainIdFor(RETIRED_NETWORK), genesis);
+  const refused = verifyKeyRegistration(retired, live, genesis);
+  assert.equal(refused.ok, false);
+  assert.match(refused.reason, new RegExp(`bound to chain id ${chainIdFor(RETIRED_NETWORK)}, not ${live}`));
+  const flipped = tx.raw.slice(0, 200) + (tx.raw[200] === "0" ? "1" : "0") + tx.raw.slice(201);
+  assert.equal(verifyKeyRegistration({ ...tx, raw: flipped }, live, genesis).ok, false);
+  const forged = { ...tx, signature: "ab".repeat(ML_DSA_65_SIGNATURE_BYTES) };
+  forged.raw = tx.raw.slice(0, -2 * ML_DSA_65_SIGNATURE_BYTES) + forged.signature;
+  assert.equal(verifyKeyRegistration(forged, live, genesis).ok, false, "a signature of the right length but wrong content must not pass");
+  const transfer = signedRegistration(live, genesis, { target: sha3(Buffer.from("an ordinary recipient")) });
+  assert.match(verifyKeyRegistration(transfer, live, genesis).reason, /key registration system address/, "a transfer that carries the key must not pass as a registration");
+  const call = signedRegistration(live, genesis, { kind: 1 });
+  assert.match(verifyKeyRegistration(call, live, genesis).reason, /kind 1/, "a call to the registration address must not pass as a registration");
+  const foreign = signedRegistration(live, genesis, { sender: sha3(Buffer.from("an account the key does not belong to")) });
+  assert.match(verifyKeyRegistration(foreign, live, genesis).reason ?? "", /does not hash to the sender address/, "a key that does not hash to the sender must not pass even when its signature verifies");
+  const padded = signedRegistration(live, genesis, { pad: true });
+  assert.equal(verifyKeyRegistration(padded, live, genesis).ok, false, "the arguments must be exactly the registered key");
+});
+
+test(`a retired ${RETIRED_NETWORK} key registration is refused for ${LIVE_NETWORK}, offline`, () => {
+  requireNativeMlDsa();
+  const retired = RETIRED_Q_TEST_NET_1_REGISTRATION;
+  assert.equal(transactionChainId(retired), chainIdFor(RETIRED_NETWORK));
+  const verdict = verifyKeyRegistration(retired, chainIdFor(LIVE_NETWORK));
+  assert.equal(verdict.ok, false, `a ${RETIRED_NETWORK} registration must not verify for ${LIVE_NETWORK}`);
+  assert.equal(verifyKeyRegistration(retired, chainIdFor(RETIRED_NETWORK), randomBytes(32)).ok, false, "a registration signed without a genesis must not verify over one");
+  assert.match(verdict.reason, new RegExp(`bound to chain id ${chainIdFor(RETIRED_NETWORK)}, not ${chainIdFor(LIVE_NETWORK)}`));
+  const raw = retired.raw;
+  const flipped = raw.slice(0, 200) + (raw[200] === "0" ? "1" : "0") + raw.slice(201);
+  const tampered = verifyKeyRegistration({ ...retired, raw: flipped }, chainIdFor(RETIRED_NETWORK));
+  assert.equal(tampered.ok, false);
+  assert.doesNotMatch(tampered.reason, /chain id/);
+  const forged = { ...retired, signature: "ab".repeat(ML_DSA_65_SIGNATURE_BYTES) };
+  forged.raw = raw.slice(0, -2 * ML_DSA_65_SIGNATURE_BYTES) + forged.signature;
+  assert.equal(verifyKeyRegistration(forged, chainIdFor(RETIRED_NETWORK)).ok, false, "a signature of the right length but wrong content must not pass");
+});
+
+async function findKeyRegistration(g) {
+  if (NAMED_KEY_REGISTRATION_ID) {
+    const tx = await g.getTransaction(NAMED_KEY_REGISTRATION_ID);
+    assert.ok(tx?.tx_id === NAMED_KEY_REGISTRATION_ID, "the gateway returned another transaction");
+    assert.ok(tx.kind === "key_register", `${printable(NAMED_KEY_REGISTRATION_ID)} is not a key registration`);
+    return tx;
+  }
+  const head = await g.headHeight();
+  let lookups = 0;
+  for (let i = 1; i <= WINDOW && i <= head; i += 1) {
+    const block = await g.getBlock(head - i);
+    for (const id of Array.isArray(block?.tx_ids) ? block.tx_ids : []) {
+      if (lookups >= MAX_LOOKUPS) break;
+      lookups += 1;
+      const tx = await g.getTransaction(id);
+      if (tx?.kind === "key_register" && tx.tx_id === id) return tx;
+    }
+  }
+  throw new Error(`no key registration was found in the last ${WINDOW} blocks, set QUANTOVA_KEY_REGISTER_TX to name one`);
+}
 
 test("live, a key registration served by the chain verifies under the key it registers", { skip }, async () => {
   requireNativeMlDsa();
   const g = new QuantovaGateway();
-  const tx = await g.getTransaction(PINNED_KEY_REGISTRATION_ID);
-  assert.equal(tx.kind, "key_register", `${PINNED_KEY_REGISTRATION_ID} is not a key registration`);
-  const verdict = verifyKeyRegistration(tx);
+  const { genesis } = await g.binding();
+  const tx = await findKeyRegistration(g);
+  const verdict = verifyKeyRegistration(tx, chainIdFor(EXPECTED_CHAIN_ID), genesis);
   assert.ok(verdict.ok, verdict.reason);
-  console.log(`ML-DSA-65 signature of ${tx.tx_id} verified under the key bound to ${tx.from}`);
+  console.log(`ML-DSA-65 signature of ${printable(tx.tx_id)} verified under the key bound to ${printable(tx.from)} on ${printable(EXPECTED_CHAIN_ID)} and its pinned genesis`);
 });
 
 async function fetchSignedTransaction(g) {
-  const height = await g.headHeight();
-  for (let h = height - 1; h > Math.max(0, height - 200); h -= 1) {
-    const block = await g.getBlock(h);
+  const head = await g.headHeight();
+  for (let i = 1; i <= WINDOW && i <= head; i += 1) {
+    const block = await g.getBlock(head - i);
     const id = block?.tx_ids?.[0];
     if (id) return g.getTransaction(id);
   }
-  throw new Error("no transaction was found in the last 200 blocks");
+  throw new Error(`no transaction was found in the last ${WINDOW} blocks`);
 }
 
 test("a chain signature is in the post quantum size band", { skip }, async () => {
@@ -188,10 +311,14 @@ test("a chain signature is in the post quantum size band", { skip }, async () =>
   const tx = await fetchSignedTransaction(g);
   const sigHex = tx.signature;
   assert.ok(typeof sigHex === "string" && /^[0-9a-f]+$/.test(sigHex), "the transaction carries no hex signature");
-  assert.equal(tx.scheme, 1, `the transaction names signature scheme ${tx.scheme}, not 1 for ML-DSA-65`);
-  assert.ok(typeof tx.raw === "string" && tx.raw.includes(sigHex), "the signature is not part of the transaction bytes the chain recorded");
+  const expected = Object.hasOwn(CHAIN_SIGNATURE_BYTES, tx.scheme) ? CHAIN_SIGNATURE_BYTES[tx.scheme] : null;
+  assert.ok(expected !== null, `the transaction names signature scheme ${printable(tx.scheme)}, the chain signs with scheme 1 for ML-DSA-65 or scheme 2 for SLH-DSA`);
   const { bytes, classical, postQuantum, nearest } = classifySignature(sigHex);
-  assert.equal(bytes, 3309, `the signature is ${bytes} bytes, an ML-DSA-65 signature is exactly 3309 bytes`);
+  assert.equal(bytes, expected, `the signature is ${bytes} bytes, a scheme ${printable(tx.scheme)} signature is exactly ${expected} bytes`);
+  const trailer = Buffer.alloc(9);
+  trailer[0] = tx.scheme;
+  trailer.writeBigUInt64LE(BigInt(bytes), 1);
+  assert.ok(typeof tx.raw === "string" && tx.raw.endsWith(trailer.toString("hex") + sigHex), "the signature does not close the transaction bytes the chain recorded");
 
   console.log(`signature length ${bytes} bytes, nearest post quantum parameter set ${nearest}`);
 
@@ -203,6 +330,6 @@ test("a chain signature is in the post quantum size band", { skip }, async () =>
   assert.ok(
     postQuantum,
     `signature is ${bytes} bytes, below the post quantum minimum of ${PQ_MIN_BYTES}. ` +
-      "Quantova signs with ML-DSA-65 at 3309 bytes."
+      "Quantova signs with ML-DSA-65 at 3309 bytes or SLH-DSA at 16224 bytes."
   );
 });

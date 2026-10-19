@@ -3,9 +3,13 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { setTimeout as sleep } from "node:timers/promises";
 import { HAS_ENDPOINT, QuantovaGateway } from "../lib/gateway-client.js";
+import { printable } from "../lib/printable.js";
 
 const skip = !HAS_ENDPOINT;
+const POLL_MS = 500;
+const POLLS = 20;
 
 test("the gateway reports a node identity and chain params", { skip }, async () => {
   const g = new QuantovaGateway();
@@ -14,13 +18,18 @@ test("the gateway reports a node identity and chain params", { skip }, async () 
 
   assert.ok(info, "node_info returned nothing");
   assert.ok(params, "chain_params returned nothing");
-  console.log(`node_info ${JSON.stringify(info)}`);
-  console.log(`chain_params ${JSON.stringify(params)}`);
+  console.log(`node_info ${printable(JSON.stringify(info), 4000)}`);
+  console.log(`chain_params ${printable(JSON.stringify(params), 4000)}`);
 });
 
-test("the head advances to a positive height", { skip }, async () => {
+test("the head advances", { skip }, async () => {
   const g = new QuantovaGateway();
-  const height = await g.headHeight();
-  assert.ok(Number.isFinite(height) && height >= 0, `head height was ${height}`);
-  console.log(`head height ${height}`);
+  const first = await g.headHeight();
+  let later = first;
+  for (let i = 0; i < POLLS && later <= first; i += 1) {
+    await sleep(POLL_MS);
+    later = await g.headHeight();
+  }
+  assert.ok(later > first, `the head stayed at height ${first} for ${(POLLS * POLL_MS) / 1000} seconds`);
+  console.log(`head height advanced from ${first} to ${later}`);
 });

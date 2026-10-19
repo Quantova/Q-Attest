@@ -5,14 +5,14 @@
   "type": "module",
   "engines": { "node": ">=24" },
   "scripts": {
-    "test": "node --test labs/*.test.js",
-    "labs": "node --test labs/*.test.js",
-    "lab:connectivity": "node --test labs/00-connectivity.test.js",
-    "lab:signature": "node --test labs/01-signature-scheme.test.js",
-    "lab:no-ec": "node --test labs/02-no-elliptic-curve.test.js",
-    "lab:sortition": "node --test labs/03-committee-sortition.test.js",
-    "lab:sha3": "node --test labs/04-sha3-hashing.test.js",
-    "lab:finality": "node --test labs/05-deterministic-finality.test.js"
+    "test": "node --test --test-timeout=180000 labs/*.test.js",
+    "labs": "node --test --test-timeout=180000 labs/*.test.js",
+    "lab:connectivity": "node --test --test-timeout=180000 labs/00-connectivity.test.js",
+    "lab:signature": "node --test --test-timeout=180000 labs/01-signature-scheme.test.js",
+    "lab:no-ec": "node --test --test-timeout=180000 labs/02-no-elliptic-curve.test.js",
+    "lab:committee": "node --test --test-timeout=180000 labs/03-validator-committee.test.js",
+    "lab:sha3": "node --test --test-timeout=180000 labs/04-sha3-hashing.test.js",
+    "lab:finality": "node --test --test-timeout=180000 labs/05-deterministic-finality.test.js"
   },
   "license": "Apache-2.0 OR MIT"
 }

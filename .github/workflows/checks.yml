@@ -20,6 +20,13 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+      - name: no key or seed files tracked
+        run: node .github/checks/tracked-files.mjs
+      - name: seed scanner finds every planted shape
+        run: node .github/checks/tracked-files.mjs --self-test
       - name: install gitleaks
         run: |
           set -euo pipefail
@@ -35,15 +42,74 @@ jobs:
           title = "quantova secret scan"
           [extend]
           useDefault = true
+          [[rules]]
+          id = "quantova-hex-seed"
+          description = "32 bytes written as 64 hex characters, the shape of a seed"
+          regex = '''(?:^|[^0-9A-Fa-f])(sha256[:=])?(?:0[xX])?([0-9A-Fa-f]{64})(?:[^0-9A-Fa-f]|$)'''
+          secretGroup = 2
+          [[rules.allowlists]]
+          description = "a digest labelled as sha256"
+          regexTarget = "match"
+          regexes = ['''sha256[:=][0-9A-Fa-f]{64}''']
+          [[rules.allowlists]]
+          description = "a checksum line handed to sha256sum"
+          regexTarget = "line"
+          regexes = ['''^\s*echo "[0-9a-f]{64}  \$RUNNER_TEMP/[A-Za-z0-9._-]+" \| sha256sum -c -\s*$''']
+          [[rules.allowlists]]
+          description = "a validator sortition root in a finality pin"
+          condition = "AND"
+          paths = ['''^finality-pin\.json$''', '''^examples/finality-pin\.json$''']
+          regexTarget = "line"
+          regexes = ['''^\s*"root":\s*"[0-9a-f]{64}",?\s*$''']
+          [[rules]]
+          id = "quantova-hex-halves"
+          description = "64 hex characters split over neighbouring lines"
+          regex = '''(\b[0-9A-Fa-f]{24,39}\b[^\n]{0,40}\n[^\n]{0,40}?\b[0-9A-Fa-f]{24,39}\b|(?:\b[0-9A-Fa-f]{16}\b[^\n0-9A-Fa-f]{0,24}\n[^\n0-9A-Fa-f]{0,24}){3}\b[0-9A-Fa-f]{16}\b)'''
+          secretGroup = 1
+          [[rules]]
+          id = "quantova-hex-bytes"
+          description = "32 bytes written as separated hex pairs, as od, colons, commas, 0x or C escapes print them"
+          regex = '''((?:\b(?:0[xX])?[0-9A-Fa-f]{2}(?:[ \t:,;-]{1,3}|[ \t,]*\n[ \t]*(?:[0-7]{7,8}[ \t]+)?)){31}\b(?:0[xX])?[0-9A-Fa-f]{2}\b|(?:\\x[0-9A-Fa-f]{2}){32})'''
+          secretGroup = 1
+          [[rules]]
+          id = "quantova-decimal-bytes"
+          description = "a list of exactly 32 byte values"
+          regex = '''\[\s*((?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\s*,\s*){31}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9]))\s*\]'''
+          secretGroup = 1
+          [[rules]]
+          id = "quantova-base64-seed"
+          description = "32 bytes written in base64 or base64url, padded or not, the shape of a seed"
+          regex = '''(?:^|[^A-Za-z0-9+/_-])((?:[A-Za-z0-9+/]{42}|[A-Za-z0-9_-]{42})[AEIMQUYcgkosw048]=?)(?:[^A-Za-z0-9+/=_-]|$)'''
+          secretGroup = 1
+          [[rules.allowlists]]
+          description = "a single case word, not the mixed case of a seed"
+          regexes = ['''^[A-Z0-9_+/-]+=?$''', '''^[a-z0-9_+/-]+=?$''']
+          [[rules]]
+          id = "quantova-mnemonic"
+          description = "twelve or more short words in a row on a line, the shape of a recovery phrase"
+          regex = '''(?im)(?:^|[\s"'`=:(\[,])((?:[a-z]{3,8}[ \t]+){11,24}[a-z]{3,8})[ \t"'`,;)\]]*$'''
+          secretGroup = 1
+          [[rules]]
+          id = "quantova-mnemonic-block"
+          description = "three or more lines of only short words, the shape of a recovery phrase written a few words per line"
+          regex = '''(?im)((?:^[ \t]*(?:[a-z]{3,8}[ \t]+){2,7}[a-z]{3,8}[ \t]*\n){3,})'''
+          secretGroup = 1
+          [[rules]]
+          id = "quantova-mnemonic-lines"
+          description = "twelve or more lines of one short word each, the shape of a recovery phrase"
+          regex = '''(?im)((?:^[ \t]*(?:[0-9]{1,2}[.)][ \t]*)?["']?[a-z]{3,8}["']?,?[ \t]*\n){12})'''
+          secretGroup = 1
           [allowlist]
-          description = "public, example, and checksum data that is not a secret"
+          description = "labelled test vectors, the exact shape of this file is checked by .github/checks/tracked-files.mjs"
           paths = [
-            '''(^|/)Cargo\.lock$''',
-            '''(^|/)package-lock\.json$''',
+            '''^labs/vectors/offline-vectors\.json$''',
           ]
           regexes = [
             '''YOUR_[A-Z0-9_]+''',
             '''^[Qq]1[0-9A-Za-z]{25,}$''',
+            '''^a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a$''',
+            '''^3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532$''',
+            '''^ca91e093bb8de33e90db52d7c89876597d14760703793ea7211929e73e613062$''',
           ]
           TOML
           gitleaks detect --source . --no-banner --redact --config "$RUNNER_TEMP/gitleaks.toml"
@@ -58,8 +124,26 @@ jobs:
         with:
           node-version: 24
       - name: syntax
-        run: for f in labs/*.js lib/*.js; do node --check "$f"; done
+        run: |
+          for f in labs/*.js lib/*.js .github/checks/*.mjs; do node --check "$f"; done
+          node .github/checks/tracked-files.mjs --self-test
+      - name: network wording and references
+        run: |
+          set -uo pipefail
+          bad=0
+          if grep -rniE 'test ?net' README.md docs labs lib package.json .env.example | sed -E 's/rpc-testnet\.quantova\.org//g' | grep -iE 'test ?net'; then
+            echo "the network is live and only its native asset TQTOV is a test asset"
+            bad=1
+          fi
+          if grep -rn 'ADAPT' README.md docs labs lib; then
+            echo "the ADAPT notes were removed and nothing may point to them"
+            bad=1
+          fi
+          for v in $(grep -rhoE 'QUANTOVA_[A-Z_]+' labs lib | sort -u); do
+            grep -q "^$v=" .env.example || { echo "$v is read by the labs but not listed in .env.example"; bad=1; }
+          done
+          exit $bad
       - name: self verifying labs
         env:
           QUANTOVA_OFFLINE: "1"
-        run: node --test labs/*.test.js
+        run: node --test --test-timeout=180000 labs/*.test.js
