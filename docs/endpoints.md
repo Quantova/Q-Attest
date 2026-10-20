@@ -6,10 +6,10 @@ The gateway to point the labs at, and the methods they use.
 
 The Quantova gateway is a plain HTTP surface. Every call is an HTTP POST to `/v1/<method>` with a flat JSON body. The response is JSON. Addresses are Q1 bech32m strings written with a capital Q. Heights and amounts are plain JSON numbers or decimal strings.
 
-The `Q-test-net-01` gateway is at `https://rpc-testnet.quantova.org`. `Q-test-net-01` is a live network and only its native asset TQTOV is a test asset. Set the gateway in your environment.
+The `Q-test-net-01` gateway is at `https://q-test-net-01.quantova.org`. `Q-test-net-01` is a live network and only its native asset TQTOV is a test asset. Set the gateway in your environment.
 
 ```
-export QUANTOVA_GATEWAY_URL=https://rpc-testnet.quantova.org
+export QUANTOVA_GATEWAY_URL=https://q-test-net-01.quantova.org
 ```
 
 For the live consensus and finality labs, the most reliable target is a node you run, because a public endpoint may rate limit. Build instructions live in the consensus specification repository. An archive node gives full history.

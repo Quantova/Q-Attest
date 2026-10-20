@@ -52,7 +52,7 @@ When a node names a field differently, the lab names the field it could not read
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `QUANTOVA_GATEWAY_URL` | `https://rpc-testnet.quantova.org` | The gateway to inspect. It must use https unless it is on this machine. |
+| `QUANTOVA_GATEWAY_URL` | `https://q-test-net-01.quantova.org` | The gateway to inspect. It must use https unless it is on this machine. |
 | `QUANTOVA_CHAIN_ID` | `Q-test-net-01` | The chain name node_info must report. Its SHA3 256 also gives the chain id a signed body must carry. |
 | `QUANTOVA_FINALITY_FILE` | `finality-pin.json` | The finality pin, a genesis hash and validator roster you trust. Labs 03 and 05 check certificates only against it. A file named here that is unreadable, for another chain, or empty fails the labs. |
 | `QUANTOVA_GENESIS_HASH` | the pin's genesis hash | The genesis hash node_info must report, as 64 lowercase hex characters. When the pin also names one, the two must agree. The `Q-test-net-01` value is pinned after the relaunch, and until then the live labs fail unless a pin or this variable is set. |
